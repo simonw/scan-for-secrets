@@ -148,17 +148,6 @@ class Match:
                        # "html", "backslash-doubled", "unicode-escape", or "repr"
 ```
 
-## Help
-
-For help, run:
-```bash
-scan-for-secrets --help
-```
-You can also use:
-```bash
-python -m scan_for_secrets --help
-```
-
 ## Development
 
 To contribute to this tool, first checkout the code. Then run the tests:
