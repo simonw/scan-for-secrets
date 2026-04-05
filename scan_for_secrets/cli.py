@@ -26,7 +26,20 @@ from .scanner import scan_directory
     help="Path to a config file that outputs secrets",
 )
 def cli(secrets, directory, config_path):
-    "Scan for secrets in files you want to publish"
+    """Scan text files in a directory for secret strings.
+
+    Pass one or more SECRETS as arguments, pipe them via stdin, or use a config
+    file. All text files in the directory are checked for both literal matches
+    and common escaped variants (JSON, URL, HTML entities, etc).
+
+    Exits with code 0 if clean, 1 if secrets are found, 2 if no secrets were
+    provided. With no arguments or piped input, looks for a default config at
+    ~/.scan-for-secrets.conf.sh.
+
+    Config files are executed as shell scripts. Each line of stdout is treated
+    as a secret to scan for. Use "echo $ENV_VAR" or any command that outputs
+    secrets, one per line. Blank lines are ignored.
+    """
     all_secrets = list(secrets)
 
     # Read from stdin if not a TTY

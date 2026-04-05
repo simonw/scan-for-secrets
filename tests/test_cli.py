@@ -10,7 +10,7 @@ def test_help():
     runner = CliRunner()
     result = runner.invoke(cli, ["--help"])
     assert result.exit_code == 0
-    assert "Scan for secrets" in result.output
+    assert "Scan text files in a directory for secret strings" in result.output
 
 
 
