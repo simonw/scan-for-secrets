@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from .scanner import scan_directory
+from .scanner import scan_directory_iter
 
 
 @click.command()
@@ -25,7 +25,14 @@ from .scanner import scan_directory
     default=None,
     help="Path to a config file that outputs secrets",
 )
-def cli(secrets, directory, config_path):
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    default=False,
+    help="Show directories as they are scanned",
+)
+def cli(secrets, directory, config_path, verbose):
     """Scan text files in a directory for secret strings.
 
     Pass one or more SECRETS as arguments, pipe them via stdin, or use a config
@@ -69,13 +76,21 @@ def cli(secrets, directory, config_path):
         )
         sys.exit(2)
 
-    result = scan_directory(directory, all_secrets)
+    def _on_enter_directory(rel_dir: str) -> None:
+        click.echo(rel_dir, err=True)
 
-    if result.has_secrets:
-        for match in result.matches:
-            click.echo(
-                f"{match.file_path}:{match.line_number}: {match.secret_hint} ({match.encoding})"
-            )
+    found = False
+    for match in scan_directory_iter(
+        directory,
+        all_secrets,
+        on_enter_directory=_on_enter_directory if verbose else None,
+    ):
+        click.echo(
+            f"{match.file_path}:{match.line_number}: {match.secret_hint} ({match.encoding})"
+        )
+        found = True
+
+    if found:
         sys.exit(1)
 
 

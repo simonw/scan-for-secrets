@@ -178,3 +178,36 @@ def test_multiple_files_in_output():
         assert result.exit_code == 1
         assert "a.txt:1" in result.output
         assert "sub/b.txt:1" in result.output
+
+
+def test_verbose_shows_scanning_directories():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        os.makedirs("sub/deep")
+        os.makedirs("other")
+        with open("a.txt", "w") as f:
+            f.write("nothing\n")
+        with open("sub/b.txt", "w") as f:
+            f.write("nothing\n")
+        with open("sub/deep/c.txt", "w") as f:
+            f.write("nothing\n")
+        with open("other/d.txt", "w") as f:
+            f.write("nothing\n")
+        result = runner.invoke(cli, ["sk-abc123xyz", "-v"])
+        assert result.exit_code == 0
+        stderr = result.stderr
+        lines = stderr.strip().split("\n")
+        assert "." in lines
+        assert "sub" in lines
+        assert "sub/deep" in lines
+        assert "other" in lines
+
+
+def test_verbose_not_shown_without_flag():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open("a.txt", "w") as f:
+            f.write("nothing\n")
+        result = runner.invoke(cli, ["sk-abc123xyz"])
+        assert result.exit_code == 0
+        assert result.stderr == ""

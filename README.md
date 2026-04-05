@@ -46,6 +46,11 @@ cat secrets.txt | scan-for-secrets
 ```
 This can be combined with secrets passed as positional arguments.
 
+Add `-v/--verbose` to see which directories are being scanned (output goes to stderr):
+```bash
+scan-for-secrets $OPENAI_API_KEY -v
+```
+
 ## Output
 
 If no secrets are found, the tool will terminate with an exit code 0 and output nothing. If secrets are found it will return an exit code 1 and list the files, line numbers and the first few characters of each secret that was spotted.
@@ -116,12 +121,33 @@ if result.has_secrets:
 
 #### `scan_directory(directory: str | Path, secrets: list[str]) -> ScanResult`
 
-Recursively scans all text files in `directory` for the given `secrets`, checking both literal matches and common escaped variants (JSON, URL percent-encoding, HTML entities, backslash-doubled, Unicode escapes and Python repr).
+Recursively scans all text files in `directory` for the given `secrets`, checking both literal matches and common escaped variants (JSON, URL percent-encoding, HTML entities, backslash-doubled and Unicode escapes). Returns a `ScanResult` with all matches collected.
 
 - **`directory`**: Root directory to scan. Can be a string path or a `pathlib.Path`.
 - **`secrets`**: List of secret strings to search for. Empty strings are ignored.
 
 Binary files (detected by null bytes in the first 8192 bytes) are skipped. The following directories are also skipped: `.git`, `.hg`, `.svn`, `node_modules`, `__pycache__`, `.venv`, `venv`.
+
+#### `scan_directory_iter(directory, secrets, on_enter_directory=None) -> Iterator[Match]`
+
+```python
+def scan_directory_iter(
+    directory: str | Path,
+    secrets: list[str],
+    on_enter_directory: Callable[[str], None] | None = None,
+) -> Iterator[Match]:
+```
+
+Streaming version of `scan_directory` — yields `Match` objects as they are found instead of collecting them. Useful for large directory trees where you want to display results immediately.
+
+The optional `on_enter_directory` callback is called with the relative path of each directory as it is entered.
+
+```python
+from scan_for_secrets import scan_directory_iter
+
+for match in scan_directory_iter("./logs", ["sk-abc123...", "ghp_secret..."]):
+    print(f"{match.file_path}:{match.line_number}: {match.secret_hint} ({match.encoding})")
+```
 
 #### `ScanResult`
 
