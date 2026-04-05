@@ -145,8 +145,20 @@ class Match:
     line_number: int   # 1-based line number where the match was found
     secret_hint: str   # First 4 characters of the original secret + "..."
     encoding: str      # How the secret was encoded: "literal", "json", "url",
-                       # "html", "backslash-doubled", "unicode-escape", or "repr"
+                       # "html", "backslash-doubled", or "unicode-escape"
 ```
+
+## Escaping schemes
+
+In addition to literal string matching, `scan-for-secrets` checks for these escaped forms of each secret:
+
+- **JSON** (`json`) — Characters are escaped as they would appear inside a JSON string: `\"`, `\\`, `\/`, `\n`, `\t`, and `\uXXXX` for non-ASCII characters. Catches secrets embedded in JSON files, API responses, and log output from JSON-based tools.
+- **URL percent-encoding** (`url`) — Every non-alphanumeric character is replaced with `%XX` hex encoding (e.g. `=` becomes `%3D`, `&` becomes `%26`). Catches secrets in URLs, query strings, and form data.
+- **HTML entities** (`html`) — `&` `<` `>` `"` are replaced with named entities (`&amp;`, `&lt;`, `&gt;`, `&quot;`), and non-ASCII characters become numeric references like `&#xC3;`. Catches secrets embedded in HTML pages and XML documents.
+- **Backslash-doubled** (`backslash-doubled`) — Every `\` is replaced with `\\`. Catches secrets in configuration files, YAML, TOML, and other formats that escape backslashes.
+- **Unicode escape** (`unicode-escape`) — Non-ASCII characters are replaced with Python-style escape sequences like `\xe9` or `\u00e9`. Catches secrets in source code and debug output.
+
+If an encoding produces the same string as the literal secret (for example, URL-encoding a plain alphanumeric string), that redundant variant is skipped.
 
 ## Development
 

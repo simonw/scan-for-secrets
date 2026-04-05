@@ -73,12 +73,12 @@ def test_encoding_produces_expected_variant(secret, encoding, expected):
         # Backslash doubling: C:\secret\key -> C:\\secret\\key
         # (may be produced by json or backslash-doubled encoder, either is fine)
         ("C:\\secret\\key", "C:\\\\secret\\\\key"),
-        # repr/json of newline: actual newline -> \n escape sequence
+        # json of newline: actual newline -> \n escape sequence
         ("line1\nline2", "line1\\nline2"),
     ],
     ids=[
         "backslash-doubled-present",
-        "repr-newline-present",
+        "json-newline-present",
     ],
 )
 def test_variant_string_is_present(secret, expected_in_variants):

@@ -42,13 +42,6 @@ def _unicode_escaped(secret: str) -> str:
     return secret.encode("unicode_escape").decode("ascii")
 
 
-def _repr_escaped(secret: str) -> str:
-    """Python repr() with outer quotes stripped."""
-    r = repr(secret)
-    # Strip the outer quotes (could be ' or ")
-    return r[1:-1]
-
-
 def generate_variants(secret: str) -> list[tuple[str, str]]:
     """Generate escaped variants of a secret string.
 
@@ -61,7 +54,6 @@ def generate_variants(secret: str) -> list[tuple[str, str]]:
         ("html", _html_entity_encoded),
         ("backslash-doubled", _backslash_doubled),
         ("unicode-escape", _unicode_escaped),
-        ("repr", _repr_escaped),
     ]
 
     variants = [("literal", secret)]
