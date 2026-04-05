@@ -1,5 +1,5 @@
 [project]
-name = "scan-for-credentials"
+name = "scan-for-secrets"
 version = "0.1"
 description = "Scan for secrets in files you want to publish"
 readme = "README.md"
@@ -16,13 +16,13 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project.urls]
-Homepage = "https://github.com/simonw/scan-for-credentials"
-Changelog = "https://github.com/simonw/scan-for-credentials/releases"
-Issues = "https://github.com/simonw/scan-for-credentials/issues"
-CI = "https://github.com/simonw/scan-for-credentials/actions"
+Homepage = "https://github.com/simonw/scan-for-secrets"
+Changelog = "https://github.com/simonw/scan-for-secrets/releases"
+Issues = "https://github.com/simonw/scan-for-secrets/issues"
+CI = "https://github.com/simonw/scan-for-secrets/actions"
 
 [project.scripts]
-scan-for-credentials = "scan_for_credentials.cli:cli"
+scan-for-secrets = "scan_for_secrets.cli:cli"
 
 [dependency-groups]
 dev = ["pytest"]

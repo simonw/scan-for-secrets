@@ -1,5 +1,5 @@
 from click.testing import CliRunner
-from scan_for_credentials.cli import cli
+from scan_for_secrets.cli import cli
 
 
 def test_version():
