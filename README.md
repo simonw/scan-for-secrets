@@ -48,12 +48,14 @@ This can be combined with secrets passed as positional arguments.
 
 ## Output
 
-If no secrets are found, the tool will terminate with an exit code 0 and output nothing. If secrets are found it will return an exit code XXX (fixme) and list the files, line numbers and the first few characters of each secret that was spotted.
+If no secrets are found, the tool will terminate with an exit code 0 and output nothing. If secrets are found it will return an exit code 1 and list the files, line numbers and the first few characters of each secret that was spotted.
 
 Example output:
 
 ```
-# TODO: add example output here
+logs/2024-03-15.jsonl:42: sk-a... (literal)
+logs/2024-03-15.jsonl:108: sk-a... (json)
+config/debug.html:7: ghp_... (html)
 ```
 
 ## Configuration file
@@ -101,9 +103,49 @@ Unlike the default configuration behavior, this `-c` option will be combined wit
 This package can also be used as a Python library. Add `scan-for-secrets` as a dependency and use it like this:
 
 ```python
-# TODO: add usage example here - no config file stuff, just a function that
-# takes a directory root and a list of secret strings - it should return
-# a dataclass with the information that would normally have been printed.
+from scan_for_secrets import scan_directory
+
+result = scan_directory("./logs", ["sk-abc123...", "ghp_secret..."])
+
+if result.has_secrets:
+    for match in result.matches:
+        print(f"{match.file_path}:{match.line_number}: {match.secret_hint} ({match.encoding})")
+```
+
+### API reference
+
+#### `scan_directory(directory: str | Path, secrets: list[str]) -> ScanResult`
+
+Recursively scans all text files in `directory` for the given `secrets`, checking both literal matches and common escaped variants (JSON, URL percent-encoding, HTML entities, backslash-doubled, Unicode escapes and Python repr).
+
+- **`directory`**: Root directory to scan. Can be a string path or a `pathlib.Path`.
+- **`secrets`**: List of secret strings to search for. Empty strings are ignored.
+
+Binary files (detected by null bytes in the first 8192 bytes) are skipped. The following directories are also skipped: `.git`, `.hg`, `.svn`, `node_modules`, `__pycache__`, `.venv`, `venv`.
+
+#### `ScanResult`
+
+```python
+@dataclass
+class ScanResult:
+    matches: list[Match]  # All matches found across all files
+    files_scanned: int    # Number of text files checked
+
+    @property
+    def has_secrets(self) -> bool:
+        """True if any matches were found."""
+```
+
+#### `Match`
+
+```python
+@dataclass
+class Match:
+    file_path: str     # Path relative to the scanned directory
+    line_number: int   # 1-based line number where the match was found
+    secret_hint: str   # First 4 characters of the original secret + "..."
+    encoding: str      # How the secret was encoded: "literal", "json", "url",
+                       # "html", "backslash-doubled", "unicode-escape", or "repr"
 ```
 
 ## Help

@@ -1,21 +1,86 @@
+import subprocess
+import sys
+from pathlib import Path
+
 import click
 
+from .scanner import scan_directory
 
-@click.group()
+
+@click.command()
 @click.version_option()
-def cli():
-    "Scan for secrets in files you want to publish"
-
-
-@cli.command(name="command")
-@click.argument(
-    "example"
+@click.argument("secrets", nargs=-1)
+@click.option(
+    "-d",
+    "--directory",
+    default=".",
+    type=click.Path(exists=True, file_okay=False),
+    help="Directory to scan (default: current directory)",
 )
 @click.option(
-    "-o",
-    "--option",
-    help="An example option",
+    "-c",
+    "--config",
+    "config_path",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to a config file that outputs secrets",
 )
-def first_command(example, option):
-    "Command description goes here"
-    click.echo("Here is some output")
+def cli(secrets, directory, config_path):
+    "Scan for secrets in files you want to publish"
+    all_secrets = list(secrets)
+
+    # Read from stdin if not a TTY
+    stdin = click.get_text_stream("stdin")
+    stdin_secrets = []
+    if not stdin.isatty():
+        for line in stdin:
+            line = line.strip()
+            if line:
+                stdin_secrets.append(line)
+        all_secrets.extend(stdin_secrets)
+
+    # Config file handling
+    if config_path:
+        # -c is always additive
+        all_secrets.extend(_run_config(config_path))
+    elif not all_secrets:
+        # No args and no stdin — try default config
+        default_config = Path.home() / ".scan-for-secrets.conf.sh"
+        if default_config.exists():
+            all_secrets.extend(_run_config(str(default_config)))
+
+    if not all_secrets:
+        click.echo("No secrets provided. Pass secrets as arguments, pipe them via stdin, or set up a config file.", err=True)
+        sys.exit(2)
+
+    result = scan_directory(directory, all_secrets)
+
+    if result.has_secrets:
+        for match in result.matches:
+            click.echo(f"{match.file_path}:{match.line_number}: {match.secret_hint} ({match.encoding})")
+        sys.exit(1)
+
+
+def _run_config(config_path: str) -> list[str]:
+    """Execute a config file and return the secrets it outputs."""
+    try:
+        proc = subprocess.run(
+            ["bash", config_path],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        click.echo(f"Warning: config file error: {e}", err=True)
+        return []
+
+    if proc.returncode != 0 and not proc.stdout.strip():
+        click.echo(f"Warning: config file exited with code {proc.returncode}", err=True)
+        return []
+
+    secrets = []
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if line:
+            secrets.append(line)
+    return secrets
