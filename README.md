@@ -24,7 +24,7 @@ uvx scan-for-secrets --help
 
 ## Usage
 
-This tool helps scan all of the files in a directory to see if they include specified secret strings. For example, run this if you want to publish the logs from a coding agent session after first confirming no secrets from environment variables are exposed in those logs.
+This tool helps scan all of the text files in a directory (ignoring binary files) to see if they include specified secret strings. For example, run this if you want to publish the logs from a coding agent session after first confirming no secrets from environment variables are exposed in those logs.
 
 Basic usage looks like this:
 ```bash
