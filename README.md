@@ -46,6 +46,16 @@ cat secrets.txt | scan-for-secrets
 ```
 This can be combined with secrets passed as positional arguments.
 
+## Output
+
+If no secrets are found, the tool will terminate with an exit code 0 and output nothing. If secrets are found it will return an exit code XXX (fixme) and list the files, line numbers and the first few characters of each secret that was spotted.
+
+Example output:
+
+```
+# TODO: add example output here
+```
+
 ## Configuration file
 
 If you run `scan-for-secrets` without any extra arguments or piped data the command will look for a default configuration file to tell it what to scan for instead.
@@ -85,6 +95,16 @@ You can also pass a path to a configuration file using the `-c/--config` option:
 scan-for-secrets -c scan.sh
 ```
 Unlike the default configuration behavior, this `-c` option will be combined with any piped data or additional positional arguments.
+
+## Using this as a Python library
+
+This package can also be used as a Python library. Add `scan-for-secrets` as a dependency and use it like this:
+
+```python
+# TODO: add usage example here - no config file stuff, just a function that
+# takes a directory root and a list of secret strings - it should return
+# a dataclass with the information that would normally have been printed.
+```
 
 ## Help
 
