@@ -1,5 +1,6 @@
 import os
 import stat
+import sys
 
 from click.testing import CliRunner
 
@@ -145,6 +146,27 @@ def test_default_config_file(tmp_path, monkeypatch):
         result = runner.invoke(cli, [])
         assert result.exit_code == 1
         assert "sk-d..." in result.output
+
+
+def test_config_file_python_shebang(tmp_path):
+    # Config file written in Python with a shebang line
+    config = tmp_path / "config.py"
+    config.write_text(
+        f"#!{sys.executable}\n"
+        "print('py-secret-one')\n"
+        "print('py-secret-two')\n"
+    )
+    config.chmod(config.stat().st_mode | stat.S_IEXEC)
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open("file.txt", "w") as f:
+            f.write("found py-secret-one and py-secret-two here\n")
+        result = runner.invoke(cli, ["-c", str(config)])
+        assert result.exit_code == 1
+        assert "py-s..." in result.output
+        lines = result.output.strip().split("\n")
+        assert len(lines) == 2
 
 
 def test_multiple_files_in_output():

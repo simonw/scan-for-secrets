@@ -75,10 +75,17 @@ def cli(secrets, directory, config_path):
 
 
 def _run_config(config_path: str) -> list[str]:
-    """Execute a config file and return the secrets it outputs."""
+    """Execute a config file and return the secrets it outputs.
+
+    If the file starts with a shebang (#!) it is executed directly,
+    otherwise it is run with bash.
+    """
+    with open(config_path) as f:
+        first_line = f.readline()
+    cmd = [config_path] if first_line.startswith("#!") else ["sh", config_path]
     try:
         proc = subprocess.run(
-            ["bash", config_path],
+            cmd,
             capture_output=True,
             text=True,
             timeout=30,

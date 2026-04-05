@@ -79,7 +79,7 @@ op read "op://Vault/API Key/password"
 llm keys get gemini
 ```
 
-Blank lines and lines starting with `#` are ignored. The entire file will be executed as a shell script, so you can even use a shebang line at the top to write your configuration in a different language.
+Blank lines and lines starting with `#` are ignored. By default the file is executed with `sh`. Add a shebang line (e.g. `#!/bin/bash` or `#!/usr/bin/env python3`) to use a different interpreter.
 
 With a configuration file setup you can run `scan-for-secrets` like this:
 
