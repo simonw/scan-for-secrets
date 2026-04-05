@@ -1,6 +1,6 @@
 [project]
 name = "scan-for-secrets"
-version = "0.1.1"
+version = "0.2"
 description = "Scan for secrets in files you plan to share"
 readme = "README.md"
 authors = [{name = "Simon Willison"}]
