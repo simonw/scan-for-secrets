@@ -54,6 +54,65 @@ def _prepare_variants(
     return secret_variants
 
 
+def _scan_single_file(
+    file_path: Path,
+    display_path: str,
+    secret_variants: list[tuple[str, str, list[tuple[str, str]]]],
+) -> Iterator[Match]:
+    """Yield matches from a single file."""
+    try:
+        with open(file_path, encoding="utf-8", errors="ignore") as f:
+            for line_number, line in enumerate(f, start=1):
+                for _secret, hint, variants in secret_variants:
+                    for variant_string, encoding_name in variants:
+                        if variant_string in line:
+                            yield Match(
+                                file_path=display_path,
+                                line_number=line_number,
+                                secret_hint=hint,
+                                encoding=encoding_name,
+                            )
+                            break
+    except (OSError, PermissionError):
+        pass
+
+
+def scan_file_iter(
+    file_path: str | Path,
+    secrets: list[str],
+) -> Iterator[Match]:
+    """Yield matches from a single file.
+
+    Args:
+        file_path: Path to the file to scan.
+        secrets: List of secret strings to search for.
+
+    Yields:
+        Match objects as secrets are discovered.
+    """
+    file_path = Path(file_path)
+    secret_variants = _prepare_variants(secrets)
+    if not secret_variants:
+        return
+    yield from _scan_single_file(file_path, file_path.name, secret_variants)
+
+
+def scan_file(file_path: str | Path, secrets: list[str]) -> ScanResult:
+    """Scan a single file for secrets.
+
+    Args:
+        file_path: Path to the file to scan.
+        secrets: List of secret strings to search for.
+
+    Returns:
+        ScanResult with matches and file count (always 1).
+    """
+    result = ScanResult(files_scanned=1)
+    for match in scan_file_iter(file_path, secrets):
+        result.matches.append(match)
+    return result
+
+
 def scan_directory_iter(
     directory: str | Path,
     secrets: list[str],
@@ -88,23 +147,7 @@ def scan_directory_iter(
                 continue
 
             rel_path = str(file_path.relative_to(directory))
-
-            try:
-                with open(file_path, encoding="utf-8", errors="ignore") as f:
-                    for line_number, line in enumerate(f, start=1):
-                        for _secret, hint, variants in secret_variants:
-                            for variant_string, encoding_name in variants:
-                                if variant_string in line:
-                                    yield Match(
-                                        file_path=rel_path,
-                                        line_number=line_number,
-                                        secret_hint=hint,
-                                        encoding=encoding_name,
-                                    )
-                                    # Only report the first matching variant per secret per line
-                                    break
-            except (OSError, PermissionError):
-                continue
+            yield from _scan_single_file(file_path, rel_path, secret_variants)
 
 
 def scan_directory(directory: str | Path, secrets: list[str]) -> ScanResult:
@@ -133,24 +176,7 @@ def scan_directory(directory: str | Path, secrets: list[str]) -> ScanResult:
 
             result.files_scanned += 1
             rel_path = str(file_path.relative_to(directory))
-
-            try:
-                with open(file_path, encoding="utf-8", errors="ignore") as f:
-                    for line_number, line in enumerate(f, start=1):
-                        for _secret, hint, variants in secret_variants:
-                            for variant_string, encoding_name in variants:
-                                if variant_string in line:
-                                    result.matches.append(
-                                        Match(
-                                            file_path=rel_path,
-                                            line_number=line_number,
-                                            secret_hint=hint,
-                                            encoding=encoding_name,
-                                        )
-                                    )
-                                    # Only report the first matching variant per secret per line
-                                    break
-            except (OSError, PermissionError):
-                continue
+            for match in _scan_single_file(file_path, rel_path, secret_variants):
+                result.matches.append(match)
 
     return result

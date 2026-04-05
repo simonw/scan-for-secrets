@@ -1,6 +1,6 @@
 import pytest
 
-from scan_for_secrets.scanner import scan_directory, ScanResult
+from scan_for_secrets.scanner import scan_directory, scan_file, ScanResult
 
 
 def test_scan_finds_literal_secret(tmp_path):
@@ -150,3 +150,31 @@ def test_scan_result_dataclass(tmp_path):
     result = scan_directory(tmp_path, ["x"])
     assert isinstance(result, ScanResult)
     assert isinstance(result.matches, list)
+
+
+# --- scan_file ---
+
+
+def test_scan_file_finds_secret(tmp_path):
+    (tmp_path / "file.txt").write_text("my key is sk-abc123xyz\n")
+    result = scan_file(tmp_path / "file.txt", ["sk-abc123xyz"])
+    assert isinstance(result, ScanResult)
+    assert result.has_secrets
+    assert len(result.matches) == 1
+    assert result.matches[0].file_path == "file.txt"
+    assert result.matches[0].line_number == 1
+    assert result.files_scanned == 1
+
+
+def test_scan_file_no_match(tmp_path):
+    (tmp_path / "file.txt").write_text("nothing here\n")
+    result = scan_file(tmp_path / "file.txt", ["sk-abc123xyz"])
+    assert not result.has_secrets
+    assert result.files_scanned == 1
+
+
+def test_scan_file_escaped_variant(tmp_path):
+    (tmp_path / "file.json").write_text('{"key": "pass\\"word"}\n')
+    result = scan_file(tmp_path / "file.json", ['pass"word'])
+    assert result.has_secrets
+    assert result.matches[0].encoding == "json"

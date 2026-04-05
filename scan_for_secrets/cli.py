@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from .scanner import scan_directory_iter
+from .scanner import scan_directory_iter, scan_file_iter
 
 
 @click.command()
@@ -13,9 +13,18 @@ from .scanner import scan_directory_iter
 @click.option(
     "-d",
     "--directory",
-    default=".",
+    "directories",
+    multiple=True,
     type=click.Path(exists=True, file_okay=False),
-    help="Directory to scan (default: current directory)",
+    help="Directory to scan (can be used multiple times, default: current directory)",
+)
+@click.option(
+    "-f",
+    "--file",
+    "files",
+    multiple=True,
+    type=click.Path(),
+    help="Specific file to scan (can be used multiple times, missing files are ignored)",
 )
 @click.option(
     "-c",
@@ -32,7 +41,7 @@ from .scanner import scan_directory_iter
     default=False,
     help="Show directories as they are scanned",
 )
-def cli(secrets, directory, config_path, verbose):
+def cli(secrets, directories, files, config_path, verbose):
     """Scan text files in a directory for secret strings.
 
     Pass one or more SECRETS as arguments, pipe them via stdin, or use a config
@@ -77,18 +86,41 @@ def cli(secrets, directory, config_path, verbose):
         sys.exit(2)
 
     def _on_enter_directory(rel_dir: str) -> None:
-        click.echo(rel_dir, err=True)
+        click.echo(click.style(rel_dir, fg="cyan"), err=True)
+
+    # Default to cwd if no directories or files specified
+    if not directories and not files:
+        directories = (".",)
 
     found = False
-    for match in scan_directory_iter(
-        directory,
-        all_secrets,
-        on_enter_directory=_on_enter_directory if verbose else None,
-    ):
-        click.echo(
-            f"{match.file_path}:{match.line_number}: {match.secret_hint} ({match.encoding})"
-        )
-        found = True
+    match_lines: list[str] = []
+
+    def _emit(match):
+        line = f"{match.file_path}:{match.line_number}: {match.secret_hint} ({match.encoding})"
+        click.echo(line)
+        if verbose:
+            match_lines.append(line)
+
+    for directory in directories:
+        for match in scan_directory_iter(
+            directory,
+            all_secrets,
+            on_enter_directory=_on_enter_directory if verbose else None,
+        ):
+            _emit(match)
+            found = True
+
+    for file_path in files:
+        if not Path(file_path).exists():
+            continue
+        for match in scan_file_iter(file_path, all_secrets):
+            _emit(match)
+            found = True
+
+    if found and verbose:
+        click.echo()
+        for line in match_lines:
+            click.echo(line)
 
     if found:
         sys.exit(1)

@@ -36,17 +36,25 @@ To scan for a secret that can be accessed using another command, use `$(command)
 ```bash
 scan-for-secrets "$(llm keys get openai)"
 ```
-Add `-d/--directory` to specify a different directory to scan:
+Add `-d/--directory` to specify a different directory to scan. This can be passed multiple times:
 ```bash
 scan-for-secrets $OPENAI_API_KEY -d ~/my-project
+scan-for-secrets $OPENAI_API_KEY -d ~/project-a -d ~/project-b
 ```
+Use `-f/--file` to scan specific files instead of (or in addition to) directories. This can also be passed multiple times. Missing files are silently ignored.
+```bash
+scan-for-secrets $OPENAI_API_KEY -f output.log -f debug.json
+scan-for-secrets $OPENAI_API_KEY -d ~/project -f ~/extra-log.txt
+```
+If neither `-d` nor `-f` is provided, the current directory is scanned.
+
 You can also pipe a list of newline-separated secrets to the tool:
 ```bash
 cat secrets.txt | scan-for-secrets
 ```
 This can be combined with secrets passed as positional arguments.
 
-Add `-v/--verbose` to see which directories are being scanned (output goes to stderr):
+Add `-v/--verbose` to see which directories are being scanned (output goes to stderr). In verbose mode, any matches found are repeated at the end of the output so they aren't lost in the directory listing:
 ```bash
 scan-for-secrets $OPENAI_API_KEY -v
 ```
@@ -146,6 +154,30 @@ The optional `on_enter_directory` callback is called with the relative path of e
 from scan_for_secrets import scan_directory_iter
 
 for match in scan_directory_iter("./logs", ["sk-abc123...", "ghp_secret..."]):
+    print(f"{match.file_path}:{match.line_number}: {match.secret_hint} ({match.encoding})")
+```
+
+#### `scan_file(file_path: str | Path, secrets: list[str]) -> ScanResult`
+
+Scan a single file for secrets. Returns a `ScanResult` with `files_scanned` always set to 1. The `file_path` field on each match will be the file's basename.
+
+```python
+from scan_for_secrets import scan_file
+
+result = scan_file("/path/to/output.log", ["sk-abc123..."])
+if result.has_secrets:
+    for match in result.matches:
+        print(f"{match.file_path}:{match.line_number}: {match.secret_hint}")
+```
+
+#### `scan_file_iter(file_path: str | Path, secrets: list[str]) -> Iterator[Match]`
+
+Streaming version of `scan_file` — yields `Match` objects as they are found. The `file_path` field on each match will be the file's basename.
+
+```python
+from scan_for_secrets import scan_file_iter
+
+for match in scan_file_iter("/path/to/output.log", ["sk-abc123..."]):
     print(f"{match.file_path}:{match.line_number}: {match.secret_hint} ({match.encoding})")
 ```
 

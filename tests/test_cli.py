@@ -180,6 +180,92 @@ def test_multiple_files_in_output():
         assert "sub/b.txt:1" in result.output
 
 
+def test_multiple_directories(tmp_path):
+    dir_a = tmp_path / "a"
+    dir_b = tmp_path / "b"
+    dir_a.mkdir()
+    dir_b.mkdir()
+    (dir_a / "file.txt").write_text("sk-abc123xyz\n")
+    (dir_b / "file.txt").write_text("sk-abc123xyz\n")
+    runner = CliRunner()
+    result = runner.invoke(cli, ["sk-abc123xyz", "-d", str(dir_a), "-d", str(dir_b)])
+    assert result.exit_code == 1
+    assert "file.txt:1" in result.output
+    lines = result.output.strip().split("\n")
+    assert len(lines) == 2
+
+
+def test_file_option(tmp_path):
+    (tmp_path / "target.txt").write_text("sk-abc123xyz\n")
+    (tmp_path / "other.txt").write_text("sk-abc123xyz\n")
+    runner = CliRunner()
+    result = runner.invoke(cli, ["sk-abc123xyz", "-f", str(tmp_path / "target.txt")])
+    assert result.exit_code == 1
+    assert "target.txt:1" in result.output
+    # other.txt should not be scanned
+    assert "other.txt" not in result.output
+
+
+def test_file_option_multiple(tmp_path):
+    (tmp_path / "a.txt").write_text("sk-abc123xyz\n")
+    (tmp_path / "b.txt").write_text("sk-abc123xyz\n")
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["sk-abc123xyz", "-f", str(tmp_path / "a.txt"), "-f", str(tmp_path / "b.txt")],
+    )
+    assert result.exit_code == 1
+    lines = result.output.strip().split("\n")
+    assert len(lines) == 2
+
+
+def test_file_option_nonexistent_silently_ignored(tmp_path):
+    (tmp_path / "real.txt").write_text("sk-abc123xyz\n")
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "sk-abc123xyz",
+            "-f",
+            str(tmp_path / "real.txt"),
+            "-f",
+            str(tmp_path / "nonexistent.txt"),
+        ],
+    )
+    assert result.exit_code == 1
+    assert "real.txt:1" in result.output
+
+
+def test_file_and_directory_combined(tmp_path):
+    dir_a = tmp_path / "dir"
+    dir_a.mkdir()
+    (dir_a / "in_dir.txt").write_text("sk-abc123xyz\n")
+    (tmp_path / "standalone.txt").write_text("sk-abc123xyz\n")
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["sk-abc123xyz", "-d", str(dir_a), "-f", str(tmp_path / "standalone.txt")],
+    )
+    assert result.exit_code == 1
+    assert "in_dir.txt" in result.output
+    assert "standalone.txt" in result.output
+
+
+def test_file_only_no_directory_scan(tmp_path, monkeypatch):
+    # When only -f is given, don't scan cwd
+    monkeypatch.setenv("HOME", str(tmp_path))
+    target = tmp_path / "target.txt"
+    target.write_text("sk-abc123xyz\n")
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open("cwd_file.txt", "w") as f:
+            f.write("sk-abc123xyz\n")
+        result = runner.invoke(cli, ["sk-abc123xyz", "-f", str(target)])
+        assert result.exit_code == 1
+        assert "cwd_file.txt" not in result.output
+        assert "target.txt" in result.output
+
+
 def test_verbose_shows_scanning_directories():
     runner = CliRunner()
     with runner.isolated_filesystem():
@@ -201,6 +287,37 @@ def test_verbose_shows_scanning_directories():
         assert "sub" in lines
         assert "sub/deep" in lines
         assert "other" in lines
+
+
+def test_verbose_repeats_matches_at_end():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        os.makedirs("sub")
+        with open("a.txt", "w") as f:
+            f.write("sk-abc123xyz\n")
+        with open("sub/b.txt", "w") as f:
+            f.write("nothing\n")
+        result = runner.invoke(cli, ["sk-abc123xyz", "-v"])
+        assert result.exit_code == 1
+        # Directory listing appears in stderr
+        assert "." in result.stderr
+        assert "sub" in result.stderr
+        # Filter stdout to just the match lines (CliRunner mixes stderr into output)
+        match_line = "a.txt:1: sk-a... (literal)"
+        match_lines = [l for l in result.output.split("\n") if match_line in l]
+        # Should appear twice: once inline, once in the summary
+        assert len(match_lines) == 2
+
+
+def test_verbose_no_summary_when_clean():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open("a.txt", "w") as f:
+            f.write("nothing\n")
+        result = runner.invoke(cli, ["sk-abc123xyz", "-v"])
+        assert result.exit_code == 0
+        # No match lines in output (only directory names from stderr bleed)
+        assert "sk-a..." not in result.output
 
 
 def test_verbose_not_shown_without_flag():
