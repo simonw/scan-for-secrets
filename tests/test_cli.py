@@ -14,7 +14,6 @@ def test_help():
     assert "Scan text files in a directory for secret strings" in result.output
 
 
-
 def test_no_secrets_no_config_exits_with_error(tmp_path, monkeypatch):
     # Point HOME at an empty tmp dir so no real ~/.scan-for-secrets.conf.sh is found
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -152,9 +151,7 @@ def test_config_file_python_shebang(tmp_path):
     # Config file written in Python with a shebang line
     config = tmp_path / "config.py"
     config.write_text(
-        f"#!{sys.executable}\n"
-        "print('py-secret-one')\n"
-        "print('py-secret-two')\n"
+        f"#!{sys.executable}\n" "print('py-secret-one')\n" "print('py-secret-two')\n"
     )
     config.chmod(config.stat().st_mode | stat.S_IEXEC)
 

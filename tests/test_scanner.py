@@ -1,6 +1,6 @@
 import pytest
 
-from scan_for_secrets.scanner import scan_directory, ScanResult, Match
+from scan_for_secrets.scanner import scan_directory, ScanResult
 
 
 def test_scan_finds_literal_secret(tmp_path):
@@ -19,7 +19,9 @@ def test_scan_no_match(tmp_path):
 
 
 def test_scan_returns_line_number(tmp_path):
-    (tmp_path / "file.txt").write_text("line 1\nline 2\nthe secret sk-abc123xyz is here\nline 4\n")
+    (tmp_path / "file.txt").write_text(
+        "line 1\nline 2\nthe secret sk-abc123xyz is here\nline 4\n"
+    )
     result = scan_directory(tmp_path, ["sk-abc123xyz"])
     assert result.matches[0].line_number == 3
 

@@ -63,14 +63,19 @@ def cli(secrets, directory, config_path):
             all_secrets.extend(_run_config(str(default_config)))
 
     if not all_secrets:
-        click.echo("No secrets provided. Pass secrets as arguments, pipe them via stdin, or set up a config file.", err=True)
+        click.echo(
+            "No secrets provided. Pass secrets as arguments, pipe them via stdin, or set up a config file.",
+            err=True,
+        )
         sys.exit(2)
 
     result = scan_directory(directory, all_secrets)
 
     if result.has_secrets:
         for match in result.matches:
-            click.echo(f"{match.file_path}:{match.line_number}: {match.secret_hint} ({match.encoding})")
+            click.echo(
+                f"{match.file_path}:{match.line_number}: {match.secret_hint} ({match.encoding})"
+            )
         sys.exit(1)
 
 
