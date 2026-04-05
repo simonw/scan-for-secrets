@@ -1,0 +1,28 @@
+[project]
+name = "scan-for-credentials"
+version = "0.1"
+description = "Scan for secrets in files you want to publish"
+readme = "README.md"
+authors = [{name = "Simon Willison"}]
+license = "Apache-2.0"
+requires-python = ">=3.10"
+classifiers = []
+dependencies = [
+    "click"
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://github.com/simonw/scan-for-credentials"
+Changelog = "https://github.com/simonw/scan-for-credentials/releases"
+Issues = "https://github.com/simonw/scan-for-credentials/issues"
+CI = "https://github.com/simonw/scan-for-credentials/actions"
+
+[project.scripts]
+scan-for-credentials = "scan_for_credentials.cli:cli"
+
+[dependency-groups]
+dev = ["pytest"]
