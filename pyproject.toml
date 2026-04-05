@@ -1,7 +1,7 @@
 [project]
 name = "scan-for-secrets"
 version = "0.1"
-description = "Scan for secrets in files you want to publish"
+description = "Scan for secrets in files you plan to share"
 readme = "README.md"
 authors = [{name = "Simon Willison"}]
 license = "Apache-2.0"
