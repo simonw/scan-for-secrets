@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from .scanner import scan_directory_iter, scan_file_iter
+from .scanner import redact_file, scan_directory_iter, scan_file_iter
 
 
 @click.command()
@@ -41,7 +41,14 @@ from .scanner import scan_directory_iter, scan_file_iter
     default=False,
     help="Show directories as they are scanned",
 )
-def cli(secrets, directories, files, config_path, verbose):
+@click.option(
+    "-r",
+    "--redact",
+    is_flag=True,
+    default=False,
+    help="Replace found secrets with REDACTED (asks for confirmation first)",
+)
+def cli(secrets, directories, files, config_path, verbose, redact):
     """Scan text files in a directory for secret strings.
 
     Pass one or more SECRETS as arguments, pipe them via stdin, or use a config
@@ -58,15 +65,16 @@ def cli(secrets, directories, files, config_path, verbose):
     """
     all_secrets = list(secrets)
 
-    # Read from stdin if not a TTY
-    stdin = click.get_text_stream("stdin")
-    stdin_secrets = []
-    if not stdin.isatty():
-        for line in stdin:
-            line = line.strip()
-            if line:
-                stdin_secrets.append(line)
-        all_secrets.extend(stdin_secrets)
+    # Read from stdin if not a TTY (skip when --redact needs stdin for confirmation)
+    if not redact:
+        stdin = click.get_text_stream("stdin")
+        stdin_secrets = []
+        if not stdin.isatty():
+            for line in stdin:
+                line = line.strip()
+                if line:
+                    stdin_secrets.append(line)
+            all_secrets.extend(stdin_secrets)
 
     # Config file handling
     if config_path:
@@ -94,27 +102,34 @@ def cli(secrets, directories, files, config_path, verbose):
 
     found = False
     match_lines: list[str] = []
+    # For --redact: collect matches grouped by absolute file path
+    matches_by_file: dict[str, list] = {}
 
-    def _emit(match):
+    def _emit(match, abs_path=None):
         line = f"{match.file_path}:{match.line_number}: {match.secret_hint} ({match.encoding})"
         click.echo(line)
         if verbose:
             match_lines.append(line)
+        if redact and abs_path:
+            matches_by_file.setdefault(abs_path, []).append(match)
 
     for directory in directories:
+        directory_path = Path(directory).resolve()
         for match in scan_directory_iter(
             directory,
             all_secrets,
             on_enter_directory=_on_enter_directory if verbose else None,
         ):
-            _emit(match)
+            abs_path = str(directory_path / match.file_path)
+            _emit(match, abs_path)
             found = True
 
     for file_path in files:
         if not Path(file_path).exists():
             continue
+        abs_path = str(Path(file_path).resolve())
         for match in scan_file_iter(file_path, all_secrets):
-            _emit(match)
+            _emit(match, abs_path)
             found = True
 
     if found and verbose:
@@ -122,7 +137,24 @@ def cli(secrets, directories, files, config_path, verbose):
         for line in match_lines:
             click.echo(line)
 
-    if found:
+    if found and redact:
+        total_matches = sum(len(m) for m in matches_by_file.values())
+        file_count = len(matches_by_file)
+        click.echo(
+            f"\nReplace {total_matches} occurrence{'s' if total_matches != 1 else ''} "
+            f"in {file_count} file{'s' if file_count != 1 else ''} with REDACTED?"
+        )
+        if click.confirm("Proceed?"):
+            total_replaced = 0
+            for abs_path in matches_by_file:
+                count = redact_file(abs_path, all_secrets)
+                total_replaced += count
+            click.echo(
+                f"Replaced {total_replaced} occurrence{'s' if total_replaced != 1 else ''}."
+            )
+        else:
+            sys.exit(1)
+    elif found:
         sys.exit(1)
 
 
