@@ -150,6 +150,45 @@ def scan_directory_iter(
             yield from _scan_single_file(file_path, rel_path, secret_variants)
 
 
+def redact_file(
+    file_path: str | Path,
+    secrets: list[str],
+    replacement: str = "REDACTED",
+) -> int:
+    """Replace all secret variants in a file with a replacement string.
+
+    Args:
+        file_path: Path to the file to redact.
+        secrets: List of secret strings to replace.
+        replacement: String to replace secrets with.
+
+    Returns:
+        Number of replacements made.
+    """
+    file_path = Path(file_path)
+    secret_variants = _prepare_variants(secrets)
+    if not secret_variants:
+        return 0
+
+    content = file_path.read_text(encoding="utf-8", errors="ignore")
+    count = 0
+
+    for _secret, _hint, variants in secret_variants:
+        # Sort variants by length descending so longer matches are replaced first
+        for variant_string, _encoding_name in sorted(
+            variants, key=lambda v: len(v[0]), reverse=True
+        ):
+            occurrences = content.count(variant_string)
+            if occurrences:
+                content = content.replace(variant_string, replacement)
+                count += occurrences
+
+    if count:
+        file_path.write_text(content, encoding="utf-8")
+
+    return count
+
+
 def scan_directory(directory: str | Path, secrets: list[str]) -> ScanResult:
     """Scan a directory for secrets, checking literal and escaped variants.
 

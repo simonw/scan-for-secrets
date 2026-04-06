@@ -178,3 +178,66 @@ def test_scan_file_escaped_variant(tmp_path):
     result = scan_file(tmp_path / "file.json", ['pass"word'])
     assert result.has_secrets
     assert result.matches[0].encoding == "json"
+
+
+# --- redact_file ---
+
+
+def test_redact_file_literal(tmp_path):
+    f = tmp_path / "file.txt"
+    f.write_text("my key is sk-abc123xyz okay\n")
+    from scan_for_secrets.scanner import redact_file
+
+    count = redact_file(f, ["sk-abc123xyz"])
+    assert count == 1
+    assert f.read_text() == "my key is REDACTED okay\n"
+
+
+def test_redact_file_multiple_secrets(tmp_path):
+    f = tmp_path / "file.txt"
+    f.write_text("first secret1 and secret2 here\n")
+    from scan_for_secrets.scanner import redact_file
+
+    count = redact_file(f, ["secret1", "secret2"])
+    assert count == 2
+    assert f.read_text() == "first REDACTED and REDACTED here\n"
+
+
+def test_redact_file_escaped_variant(tmp_path):
+    f = tmp_path / "file.json"
+    f.write_text('{"key": "pass\\"word"}\n')
+    from scan_for_secrets.scanner import redact_file
+
+    count = redact_file(f, ['pass"word'])
+    assert count == 1
+    assert f.read_text() == '{"key": "REDACTED"}\n'
+
+
+def test_redact_file_url_encoded(tmp_path):
+    f = tmp_path / "file.txt"
+    f.write_text("url=key%3Dval%26other\n")
+    from scan_for_secrets.scanner import redact_file
+
+    count = redact_file(f, ["key=val&other"])
+    assert count == 1
+    assert f.read_text() == "url=REDACTED\n"
+
+
+def test_redact_file_no_match(tmp_path):
+    f = tmp_path / "file.txt"
+    f.write_text("nothing here\n")
+    from scan_for_secrets.scanner import redact_file
+
+    count = redact_file(f, ["sk-abc123xyz"])
+    assert count == 0
+    assert f.read_text() == "nothing here\n"
+
+
+def test_redact_file_multiple_occurrences_same_line(tmp_path):
+    f = tmp_path / "file.txt"
+    f.write_text("sk-abc123xyz and again sk-abc123xyz\n")
+    from scan_for_secrets.scanner import redact_file
+
+    count = redact_file(f, ["sk-abc123xyz"])
+    assert count == 2
+    assert f.read_text() == "REDACTED and again REDACTED\n"

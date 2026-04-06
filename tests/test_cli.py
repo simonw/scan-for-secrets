@@ -328,3 +328,96 @@ def test_verbose_not_shown_without_flag():
         result = runner.invoke(cli, ["sk-abc123xyz"])
         assert result.exit_code == 0
         assert result.stderr == ""
+
+
+# --- --redact / -r option ---
+
+
+def test_redact_shows_matches_and_prompts():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open("file.txt", "w") as f:
+            f.write("my key is sk-abc123xyz\n")
+        # Answer "n" to the prompt
+        result = runner.invoke(cli, ["sk-abc123xyz", "-r"], input="n\n")
+        assert "file.txt:1" in result.output
+        assert "sk-a..." in result.output
+        # Should show the confirmation prompt
+        assert "Replace" in result.output
+        # File should be unchanged
+        assert open("file.txt").read() == "my key is sk-abc123xyz\n"
+
+
+def test_redact_confirms_and_rewrites():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open("file.txt", "w") as f:
+            f.write("my key is sk-abc123xyz\n")
+        result = runner.invoke(cli, ["sk-abc123xyz", "-r"], input="y\n")
+        assert "file.txt:1" in result.output
+        assert "Replaced" in result.output
+        assert open("file.txt").read() == "my key is REDACTED\n"
+
+
+def test_redact_multiple_files():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        os.makedirs("sub")
+        with open("a.txt", "w") as f:
+            f.write("sk-abc123xyz\n")
+        with open("sub/b.txt", "w") as f:
+            f.write("sk-abc123xyz\n")
+        result = runner.invoke(cli, ["sk-abc123xyz", "-r"], input="y\n")
+        assert result.exit_code == 0
+        assert open("a.txt").read() == "REDACTED\n"
+        assert open("sub/b.txt").read() == "REDACTED\n"
+
+
+def test_redact_no_matches_no_prompt():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open("file.txt", "w") as f:
+            f.write("nothing interesting\n")
+        result = runner.invoke(cli, ["sk-abc123xyz", "-r"])
+        assert result.exit_code == 0
+        assert "Replace" not in result.output
+
+
+def test_redact_aborted_exit_code():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open("file.txt", "w") as f:
+            f.write("sk-abc123xyz\n")
+        result = runner.invoke(cli, ["sk-abc123xyz", "-r"], input="n\n")
+        # Should exit 1 (secrets found but not redacted)
+        assert result.exit_code == 1
+
+
+def test_redact_escaped_variants():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open("file.json", "w") as f:
+            f.write('{"key": "pass\\"word"}\n')
+        result = runner.invoke(cli, ['pass"word', "-r"], input="y\n")
+        assert "Replaced" in result.output
+        assert open("file.json").read() == '{"key": "REDACTED"}\n'
+
+
+def test_redact_url_encoded():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open("file.txt", "w") as f:
+            f.write("url=key%3Dval%26other\n")
+        result = runner.invoke(cli, ["key=val&other", "-r"], input="y\n")
+        assert "Replaced" in result.output
+        assert open("file.txt").read() == "url=REDACTED\n"
+
+
+def test_redact_with_directory_option(tmp_path):
+    (tmp_path / "secret.txt").write_text("sk-abc123xyz\n")
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, ["sk-abc123xyz", "-r", "-d", str(tmp_path)], input="y\n"
+    )
+    assert "Replaced" in result.output
+    assert (tmp_path / "secret.txt").read_text() == "REDACTED\n"

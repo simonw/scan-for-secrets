@@ -59,6 +59,25 @@ Add `-v/--verbose` to see which directories are being scanned (output goes to st
 scan-for-secrets $OPENAI_API_KEY -v
 ```
 
+### Redacting secrets
+
+Use `-r/--redact` to replace found secrets with `REDACTED` directly in the scanned files. The tool will show all matches first, then ask for confirmation before rewriting anything:
+```bash
+scan-for-secrets $OPENAI_API_KEY -r
+```
+Example interaction:
+```
+logs/2024-03-15.jsonl:42: sk-a... (literal)
+logs/2024-03-15.jsonl:108: sk-a... (json)
+
+Replace 2 occurrences in 1 file with REDACTED?
+Proceed? [y/N]: y
+Replaced 2 occurrences.
+```
+All escaped variants of the secret (JSON, URL-encoded, etc.) are replaced as well. If no secrets are found, no prompt is shown. If you decline the prompt, the tool exits with code 1 (same as finding secrets without `--redact`).
+
+Note: when using `--redact`, secrets cannot be piped via stdin since stdin is reserved for the confirmation prompt. Pass secrets as arguments or use a config file instead.
+
 ## Output
 
 If no secrets are found, the tool will terminate with an exit code 0 and output nothing. If secrets are found it will return an exit code 1 and list the files, line numbers and the first few characters of each secret that was spotted.
@@ -168,6 +187,17 @@ result = scan_file("/path/to/output.log", ["sk-abc123..."])
 if result.has_secrets:
     for match in result.matches:
         print(f"{match.file_path}:{match.line_number}: {match.secret_hint}")
+```
+
+#### `redact_file(file_path: str | Path, secrets: list[str], replacement: str = "REDACTED") -> int`
+
+Replace all occurrences of the given secrets (including escaped variants) in a single file. Returns the number of replacements made. The file is only rewritten if at least one replacement occurs.
+
+```python
+from scan_for_secrets import redact_file
+
+count = redact_file("/path/to/output.log", ["sk-abc123..."])
+print(f"Replaced {count} occurrences")
 ```
 
 #### `scan_file_iter(file_path: str | Path, secrets: list[str]) -> Iterator[Match]`
