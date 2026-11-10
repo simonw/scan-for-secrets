@@ -170,7 +170,9 @@ def redact_file(
     if not secret_variants:
         return 0
 
-    content = file_path.read_text(encoding="utf-8", errors="ignore")
+    # surrogateescape preserves undecodable bytes so redacting a file
+    # with a non-UTF-8 encoding cannot silently mangle its content
+    content = file_path.read_bytes().decode("utf-8", errors="surrogateescape")
     count = 0
 
     for _secret, _hint, variants in secret_variants:
@@ -184,7 +186,7 @@ def redact_file(
                 count += occurrences
 
     if count:
-        file_path.write_text(content, encoding="utf-8")
+        file_path.write_bytes(content.encode("utf-8", errors="surrogateescape"))
 
     return count
 
